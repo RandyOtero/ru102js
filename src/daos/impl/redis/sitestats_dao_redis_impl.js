@@ -56,9 +56,23 @@ const updateOptimized = async (meterReading) => {
   const key = keyGenerator.getSiteStatsKey(meterReading.siteId, meterReading.dateTime);
 
   // Load script if needed, uses cached SHA if already loaded.
-  await compareAndUpdateScript.load();
+  const sha = await compareAndUpdateScript.load();
 
   // START Challenge #3
+  const transaction = client.multi();
+
+  // Update each value inside site stats
+  transaction.hset(key, 'lastReportingTime', timeUtils.getCurrentTimestamp());
+  transaction.hincrby(key, 'meterReadingCount', 1);
+  transaction.expire(key, weekSeconds);
+
+  transaction.evalsha(sha, 1, key, "maxWhGenerated", meterReading.whGenerated, ">");
+  transaction.evalsha(sha, 1, key, "minWhGenerated", meterReading.whGenerated, "<");
+
+  const readingCapacity = meterReading.whGenerated - meterReading.whUsed;
+  transaction.evalsha(sha, 1, key, "maxCapacity", readingCapacity, ">");
+
+  await transaction.execAsync();
   // END Challenge #3
 };
 /* eslint-enable */
@@ -106,5 +120,5 @@ const updateBasic = async (meterReading) => {
 
 module.exports = {
   findById,
-  update: updateBasic, // updateOptimized
+  update: updateOptimized, // updateOptimized
 };
