@@ -66,11 +66,11 @@ const updateOptimized = async (meterReading) => {
   transaction.hincrby(key, 'meterReadingCount', 1);
   transaction.expire(key, weekSeconds);
 
-  transaction.evalsha(sha, 1, key, "maxWhGenerated", meterReading.whGenerated, ">");
-  transaction.evalsha(sha, 1, key, "minWhGenerated", meterReading.whGenerated, "<");
+  transaction.evalsha(compareAndUpdateScript.updateIfGreater(key, "maxWhGenerated", meterReading.whGenerated))
+  transaction.evalsha(compareAndUpdateScript.updateIfLess(key, "minWhGenerated", meterReading.whGenerated))
 
   const readingCapacity = meterReading.whGenerated - meterReading.whUsed;
-  transaction.evalsha(sha, 1, key, "maxCapacity", readingCapacity, ">");
+  transaction.evalsha(compareAndUpdateScript.updateIfGreater(key, "maxCapacity", readingCapacity))
 
   await transaction.execAsync();
   // END Challenge #3
